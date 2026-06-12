@@ -1,0 +1,447 @@
+
+<style>
+  .tracker { padding: 1rem 0; font-family: var(--font-sans); }
+  .section-badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.04em; }
+  .foh-badge { background: #E6F1FB; color: #0C447C; }
+  .boh-badge { background: #EEEDFE; color: #3C3489; }
+  .shift-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); padding: 4px 8px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); display: inline-block; margin-bottom: 8px; }
+  .wide-grid { display: grid; grid-template-columns: 90px repeat(6, minmax(72px, 1fr)); gap: 5px; align-items: center; margin-bottom: 6px; }
+  .col-header { font-size: 11px; color: var(--color-text-tertiary); text-align: center; padding-bottom: 2px; }
+  .hr-input { width: 100%; padding: 5px 4px; font-size: 12px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); text-align: center; box-sizing: border-box; }
+  .hr-input:focus { outline: none; border-color: var(--color-border-secondary); }
+  .hr-input.needed { border-left: 2px solid #378ADD; background: var(--color-background-secondary); color: var(--color-text-secondary); }
+  .hr-input.available { border-left: 2px solid #639922; }
+  .sales-select { width: 100%; padding: 5px 4px; font-size: 12px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); box-sizing: border-box; cursor: pointer; }
+  .sales-select:focus { outline: none; }
+  .sales-select.breakfast { border-left: 2px solid #EF9F27; }
+  .sales-select.lunch { border-left: 2px solid #BA7517; }
+  .sales-select.afternoon { border-left: 2px solid #534AB7; }
+  .sales-select.dinner { border-left: 2px solid #3C3489; }
+  .status-cell { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .status-ratio { font-size: 11px; font-weight: 500; }
+  .status-action { font-size: 9px; color: var(--color-text-tertiary); text-align: center; line-height: 1.2; }
+  .section-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.25rem; overflow-x: auto; }
+  .shift-divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 14px 0 12px; }
+  .row-label { font-size: 11px; font-weight: 500; color: var(--color-text-primary); text-align: right; padding-right: 6px; white-space: nowrap; }
+  .row-label.muted { color: var(--color-text-secondary); font-weight: 400; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 1.5rem; }
+  .metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; }
+  .metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .metric-value { font-size: 20px; font-weight: 500; }
+  .metric-action { font-size: 11px; font-weight: 500; margin-top: 3px; }
+  .metric-status { font-size: 11px; color: var(--color-text-secondary); margin-top: 1px; }
+  .legend { display: flex; gap: 12px; font-size: 11px; color: var(--color-text-secondary); margin-bottom: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .sales-legend { display: flex; gap: 12px; font-size: 10px; color: var(--color-text-secondary); margin-bottom: 12px; flex-wrap: wrap; }
+  .sales-legend-item { display: flex; align-items: center; gap: 4px; }
+  .sales-legend-bar { width: 12px; height: 3px; border-radius: 2px; }
+</style>
+
+<div class="tracker">
+  <h2 class="sr-only">Shift coverage ratio tracker for FOH and BOH, day and night, Monday through Saturday</h2>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#639922;"></div><span>Excellent ≥ 1.25:1 → Hire ACEs</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#378ADD;"></div><span>On target 0.95–1.24:1 → Continue hiring</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E24B4A;"></div><span>Understaffed &lt; 0.95:1 → Boost Needed</span></div>
+  </div>
+  <div class="sales-legend">
+    <div class="sales-legend-item"><div class="sales-legend-bar" style="background:#EF9F27;"></div><span>Breakfast sales</span></div>
+    <div class="sales-legend-item"><div class="sales-legend-bar" style="background:#BA7517;"></div><span>Lunch sales</span></div>
+    <div class="sales-legend-item"><div class="sales-legend-bar" style="background:#534AB7;"></div><span>Afternoon sales</span></div>
+    <div class="sales-legend-item"><div class="sales-legend-bar" style="background:#3C3489;"></div><span>Dinner sales (sliding scale)</span></div>
+    <div class="sales-legend-item"><div class="sales-legend-bar" style="background:#378ADD;"></div><span>Hours needed (auto)</span></div>
+    <div class="sales-legend-item"><div class="sales-legend-bar" style="background:#639922;"></div><span>Hours available</span></div>
+  </div>
+
+  <!-- FOH -->
+  <div class="section-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <span class="section-badge foh-badge">FOH — Front of House</span>
+    </div>
+    <div class="shift-label"><i class="ti ti-sun" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>Daytime</div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div></div>
+      <div class="col-header">Mon</div><div class="col-header">Tue</div><div class="col-header">Wed</div>
+      <div class="col-header">Thu</div><div class="col-header">Fri</div><div class="col-header">Sat</div>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Breakfast $</div>
+      <select class="sales-select breakfast" data-team="foh" data-shift="day" data-meal="breakfast" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="foh" data-shift="day" data-meal="breakfast" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="foh" data-shift="day" data-meal="breakfast" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="foh" data-shift="day" data-meal="breakfast" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="foh" data-shift="day" data-meal="breakfast" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="foh" data-shift="day" data-meal="breakfast" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Lunch $</div>
+      <select class="sales-select lunch" data-team="foh" data-shift="day" data-meal="lunch" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="foh" data-shift="day" data-meal="lunch" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="foh" data-shift="day" data-meal="lunch" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="foh" data-shift="day" data-meal="lunch" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="foh" data-shift="day" data-meal="lunch" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="foh" data-shift="day" data-meal="lunch" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label">Needed</div>
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="day" data-type="needed" data-day="0" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="day" data-type="needed" data-day="1" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="day" data-type="needed" data-day="2" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="day" data-type="needed" data-day="3" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="day" data-type="needed" data-day="4" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="day" data-type="needed" data-day="5" placeholder="—">
+    </div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div class="row-label">Available</div>
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="day" data-type="available" data-day="0" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="day" data-type="available" data-day="1" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="day" data-type="available" data-day="2" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="day" data-type="available" data-day="3" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="day" data-type="available" data-day="4" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="day" data-type="available" data-day="5" placeholder="0" oninput="recalc()">
+    </div>
+    <div class="wide-grid" id="foh-day-status" style="margin-bottom:4px;">
+      <div class="row-label muted" style="font-size:10px;">Ratio</div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+    </div>
+    <div class="shift-divider"></div>
+    <div class="shift-label"><i class="ti ti-moon" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>Night</div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div></div>
+      <div class="col-header">Mon</div><div class="col-header">Tue</div><div class="col-header">Wed</div>
+      <div class="col-header">Thu</div><div class="col-header">Fri</div><div class="col-header">Sat</div>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Afternoon $</div>
+      <select class="sales-select afternoon" data-team="foh" data-shift="night" data-meal="afternoon" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="foh" data-shift="night" data-meal="afternoon" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="foh" data-shift="night" data-meal="afternoon" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="foh" data-shift="night" data-meal="afternoon" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="foh" data-shift="night" data-meal="afternoon" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="foh" data-shift="night" data-meal="afternoon" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Dinner $</div>
+      <select class="sales-select dinner" data-team="foh" data-shift="night" data-meal="dinner" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="foh" data-shift="night" data-meal="dinner" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="foh" data-shift="night" data-meal="dinner" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="foh" data-shift="night" data-meal="dinner" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="foh" data-shift="night" data-meal="dinner" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="foh" data-shift="night" data-meal="dinner" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label">Needed</div>
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="night" data-type="needed" data-day="0" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="night" data-type="needed" data-day="1" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="night" data-type="needed" data-day="2" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="night" data-type="needed" data-day="3" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="night" data-type="needed" data-day="4" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="foh" data-shift="night" data-type="needed" data-day="5" placeholder="—">
+    </div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div class="row-label">Available</div>
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="night" data-type="available" data-day="0" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="night" data-type="available" data-day="1" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="night" data-type="available" data-day="2" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="night" data-type="available" data-day="3" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="night" data-type="available" data-day="4" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="foh" data-shift="night" data-type="available" data-day="5" placeholder="0" oninput="recalc()">
+    </div>
+    <div class="wide-grid" id="foh-night-status">
+      <div class="row-label muted" style="font-size:10px;">Ratio</div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+    </div>
+  </div>
+
+  <!-- BOH -->
+  <div class="section-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <span class="section-badge boh-badge">BOH — Back of House</span>
+    </div>
+    <div class="shift-label"><i class="ti ti-sun" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>Daytime</div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div></div>
+      <div class="col-header">Mon</div><div class="col-header">Tue</div><div class="col-header">Wed</div>
+      <div class="col-header">Thu</div><div class="col-header">Fri</div><div class="col-header">Sat</div>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Breakfast $</div>
+      <select class="sales-select breakfast" data-team="boh" data-shift="day" data-meal="breakfast" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="boh" data-shift="day" data-meal="breakfast" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="boh" data-shift="day" data-meal="breakfast" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="boh" data-shift="day" data-meal="breakfast" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="boh" data-shift="day" data-meal="breakfast" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select breakfast" data-team="boh" data-shift="day" data-meal="breakfast" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Lunch $</div>
+      <select class="sales-select lunch" data-team="boh" data-shift="day" data-meal="lunch" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="boh" data-shift="day" data-meal="lunch" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="boh" data-shift="day" data-meal="lunch" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="boh" data-shift="day" data-meal="lunch" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="boh" data-shift="day" data-meal="lunch" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select lunch" data-team="boh" data-shift="day" data-meal="lunch" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label">Needed</div>
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="day" data-type="needed" data-day="0" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="day" data-type="needed" data-day="1" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="day" data-type="needed" data-day="2" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="day" data-type="needed" data-day="3" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="day" data-type="needed" data-day="4" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="day" data-type="needed" data-day="5" placeholder="—">
+    </div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div class="row-label">Available</div>
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="day" data-type="available" data-day="0" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="day" data-type="available" data-day="1" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="day" data-type="available" data-day="2" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="day" data-type="available" data-day="3" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="day" data-type="available" data-day="4" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="day" data-type="available" data-day="5" placeholder="0" oninput="recalc()">
+    </div>
+    <div class="wide-grid" id="boh-day-status" style="margin-bottom:4px;">
+      <div class="row-label muted" style="font-size:10px;">Ratio</div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+    </div>
+    <div class="shift-divider"></div>
+    <div class="shift-label"><i class="ti ti-moon" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>Night</div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div></div>
+      <div class="col-header">Mon</div><div class="col-header">Tue</div><div class="col-header">Wed</div>
+      <div class="col-header">Thu</div><div class="col-header">Fri</div><div class="col-header">Sat</div>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Afternoon $</div>
+      <select class="sales-select afternoon" data-team="boh" data-shift="night" data-meal="afternoon" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="boh" data-shift="night" data-meal="afternoon" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="boh" data-shift="night" data-meal="afternoon" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="boh" data-shift="night" data-meal="afternoon" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="boh" data-shift="night" data-meal="afternoon" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select afternoon" data-team="boh" data-shift="night" data-meal="afternoon" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label muted">Dinner $</div>
+      <select class="sales-select dinner" data-team="boh" data-shift="night" data-meal="dinner" data-day="0" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="boh" data-shift="night" data-meal="dinner" data-day="1" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="boh" data-shift="night" data-meal="dinner" data-day="2" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="boh" data-shift="night" data-meal="dinner" data-day="3" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="boh" data-shift="night" data-meal="dinner" data-day="4" onchange="recalc()"><option value="0">—</option></select>
+      <select class="sales-select dinner" data-team="boh" data-shift="night" data-meal="dinner" data-day="5" onchange="recalc()"><option value="0">—</option></select>
+    </div>
+    <div class="wide-grid" style="margin-bottom:5px;">
+      <div class="row-label">Needed</div>
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="night" data-type="needed" data-day="0" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="night" data-type="needed" data-day="1" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="night" data-type="needed" data-day="2" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="night" data-type="needed" data-day="3" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="night" data-type="needed" data-day="4" placeholder="—">
+      <input class="hr-input needed" type="text" readonly data-team="boh" data-shift="night" data-type="needed" data-day="5" placeholder="—">
+    </div>
+    <div class="wide-grid" style="margin-bottom:8px;">
+      <div class="row-label">Available</div>
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="night" data-type="available" data-day="0" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="night" data-type="available" data-day="1" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="night" data-type="available" data-day="2" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="night" data-type="available" data-day="3" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="night" data-type="available" data-day="4" placeholder="0" oninput="recalc()">
+      <input class="hr-input available" type="number" min="0" data-team="boh" data-shift="night" data-type="available" data-day="5" placeholder="0" oninput="recalc()">
+    </div>
+    <div class="wide-grid" id="boh-night-status">
+      <div class="row-label muted" style="font-size:10px;">Ratio</div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+      <div class="status-cell"><div class="status-dot" style="background:var(--color-border-tertiary);"></div><span class="status-ratio" style="color:var(--color-text-tertiary);">—</span><span class="status-action"></span></div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="metric-card">
+      <div class="metric-label">FOH ratio</div>
+      <div class="metric-value" id="foh-rate" style="color:var(--color-text-secondary);">—</div>
+      <div class="metric-action" id="foh-action" style="color:var(--color-text-secondary);"></div>
+      <div class="metric-status" id="foh-status">enter data above</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">BOH ratio</div>
+      <div class="metric-value" id="boh-rate" style="color:var(--color-text-secondary);">—</div>
+      <div class="metric-action" id="boh-action" style="color:var(--color-text-secondary);"></div>
+      <div class="metric-status" id="boh-status">enter data above</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Overall ratio</div>
+      <div class="metric-value" id="total-rate" style="color:var(--color-text-secondary);">—</div>
+      <div class="metric-action" id="total-action" style="color:var(--color-text-secondary);"></div>
+      <div class="metric-status" id="total-hrs">FOH + BOH combined</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Overall status</div>
+      <div class="metric-value" id="total-status" style="font-size:14px;color:var(--color-text-secondary);">Awaiting data</div>
+      <div class="metric-status" id="total-score">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const SALES_MAX = 20000, SALES_STEP = 500;
+  const EXCELLENT = 1.25, ON_TARGET = 0.95;
+
+  function fmtK(v) { const k = v / 1000; return '$' + k + 'k'; }
+
+  function buildOptions(sel) {
+    for (let v = SALES_STEP; v <= SALES_MAX; v += SALES_STEP) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = fmtK(v);
+      sel.appendChild(opt);
+    }
+  }
+  document.querySelectorAll('.sales-select').forEach(buildOptions);
+
+  function floorTo25(v) { return Math.floor(v / 0.25) * 0.25; }
+  function fmtHrs(v) { return v.toFixed(2); }
+
+  function dinnerDivisor(sales) {
+    const k = sales / 1000;
+    if (k <= 8) return 18;
+    return 18 + Math.floor(k - 8);
+  }
+
+  function hoursNeeded(team, meal, sales) {
+    if (sales === 0) return 0;
+    let raw;
+    if (meal === 'breakfast') {
+      raw = (((sales / 16) * 0.120710494524124) + 30.06690062) * (team === 'foh' ? 0.4 : 0.6);
+    } else if (meal === 'lunch') {
+      raw = (((sales / 17) * 0.132799576510825) + 15.51700329) * (team === 'foh' ? 0.55 : 0.45);
+    } else if (meal === 'afternoon') {
+      raw = (((sales / 16.25) * 0.1607354754) + 9.770321494) * 0.5;
+    } else if (meal === 'dinner') {
+      const div = dinnerDivisor(sales);
+      raw = (((sales / div) * 0.1747622293) + 26.561790589941) * 0.5;
+    } else { return 0; }
+    return floorTo25(raw);
+  }
+
+  function fmt(r) { return (Math.round(r * 10) / 10).toFixed(1) + ':1'; }
+  function getColor(r) { return r >= EXCELLENT ? '#639922' : r >= ON_TARGET ? '#378ADD' : '#E24B4A'; }
+  function getStatus(r) { return r >= EXCELLENT ? 'Excellent' : r >= ON_TARGET ? 'On target' : 'Understaffed'; }
+  function getAction(r) { return r >= EXCELLENT ? 'Hire ACEs' : r >= ON_TARGET ? 'Continue to hire until Excellent' : 'Boost Needed'; }
+
+  function getNeeded(team, shift, day) {
+    const meals = shift === 'day' ? ['breakfast','lunch'] : ['afternoon','dinner'];
+    return meals.reduce((sum, meal) => {
+      const sel = document.querySelector(`[data-team="${team}"][data-shift="${shift}"][data-meal="${meal}"][data-day="${day}"]`);
+      return sum + hoursNeeded(team, meal, parseFloat(sel ? sel.value : 0));
+    }, 0);
+  }
+
+  function updateStatusRow(rowId, team, shift) {
+    const cells = document.getElementById(rowId).querySelectorAll('.status-cell');
+    for (let d = 0; d < 6; d++) {
+      const n = getNeeded(team, shift, d);
+      const neededEl = document.querySelector(`[data-team="${team}"][data-shift="${shift}"][data-type="needed"][data-day="${d}"]`);
+      if (neededEl) neededEl.value = n > 0 ? fmtHrs(n) : '';
+      const a = parseFloat(document.querySelector(`[data-team="${team}"][data-shift="${shift}"][data-type="available"][data-day="${d}"]`).value) || 0;
+      const dot = cells[d].querySelector('.status-dot');
+      const ratioEl = cells[d].querySelector('.status-ratio');
+      const actionEl = cells[d].querySelector('.status-action');
+      if (n === 0) {
+        dot.style.background = 'var(--color-border-tertiary)';
+        ratioEl.textContent = '—'; ratioEl.style.color = 'var(--color-text-tertiary)';
+        actionEl.textContent = '';
+      } else {
+        const r = a / n;
+        const col = getColor(r);
+        dot.style.background = col;
+        ratioEl.textContent = fmt(r); ratioEl.style.color = col;
+        actionEl.textContent = getAction(r);
+      }
+    }
+  }
+
+  function updateSummaryCard(rateId, actionId, statusId, team) {
+    let totalN = 0, totalA = 0;
+    ['day','night'].forEach(shift => {
+      for (let d = 0; d < 6; d++) {
+        totalN += getNeeded(team, shift, d);
+        totalA += parseFloat(document.querySelector(`[data-team="${team}"][data-shift="${shift}"][data-type="available"][data-day="${d}"]`).value) || 0;
+      }
+    });
+    const rateEl = document.getElementById(rateId);
+    const actionEl = document.getElementById(actionId);
+    const statusEl = document.getElementById(statusId);
+    if (totalN === 0) {
+      rateEl.textContent = '—'; rateEl.style.color = 'var(--color-text-secondary)';
+      actionEl.textContent = ''; statusEl.textContent = 'enter data above';
+    } else {
+      const r = totalA / totalN;
+      const col = getColor(r);
+      rateEl.textContent = fmt(r); rateEl.style.color = col;
+      actionEl.textContent = getAction(r); actionEl.style.color = col;
+      statusEl.textContent = getStatus(r);
+    }
+  }
+
+  window.recalc = function() {
+    updateStatusRow('foh-day-status', 'foh', 'day');
+    updateStatusRow('foh-night-status', 'foh', 'night');
+    updateStatusRow('boh-day-status', 'boh', 'day');
+    updateStatusRow('boh-night-status', 'boh', 'night');
+    updateSummaryCard('foh-rate', 'foh-action', 'foh-status', 'foh');
+    updateSummaryCard('boh-rate', 'boh-action', 'boh-status', 'boh');
+
+    let allN = 0, allA = 0;
+    ['foh','boh'].forEach(team => {
+      ['day','night'].forEach(shift => {
+        for (let d = 0; d < 6; d++) {
+          allN += getNeeded(team, shift, d);
+          allA += parseFloat(document.querySelector(`[data-team="${team}"][data-shift="${shift}"][data-type="available"][data-day="${d}"]`).value) || 0;
+        }
+      });
+    });
+
+    const totalRateEl = document.getElementById('total-rate');
+    const totalActionEl = document.getElementById('total-action');
+    const totalHrsEl = document.getElementById('total-hrs');
+    const totalStatusEl = document.getElementById('total-status');
+
+    if (allN === 0) {
+      totalRateEl.textContent = '—'; totalRateEl.style.color = 'var(--color-text-secondary)';
+      totalActionEl.textContent = ''; totalHrsEl.textContent = 'FOH + BOH combined';
+      totalStatusEl.textContent = 'Awaiting data'; totalStatusEl.style.color = 'var(--color-text-secondary)';
+    } else {
+      const r = allA / allN;
+      const col = getColor(r);
+      totalRateEl.textContent = fmt(r); totalRateEl.style.color = col;
+      totalActionEl.textContent = getAction(r); totalActionEl.style.color = col;
+      totalHrsEl.textContent = allA.toFixed(2) + ' avail / ' + allN.toFixed(2) + ' needed';
+      totalStatusEl.textContent = getStatus(r); totalStatusEl.style.color = col;
+      totalStatusEl.style.fontSize = '15px';
+    }
+  };
+})();
+</script>
